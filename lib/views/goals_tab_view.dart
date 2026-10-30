@@ -246,6 +246,28 @@ class _GoalsTabViewState extends State<GoalsTabView> {
               ),
               Row(
                 children: [
+                  if (widget.category != GoalCategory.yearly) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF38BDF8),
+                        side: const BorderSide(color: Color(0x4438BDF8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      onPressed: () {
+                        if (widget.category == GoalCategory.daily) {
+                          widget.store.copyDayTab(activeId);
+                        } else if (widget.category == GoalCategory.weekly) {
+                          widget.store.copyWeeklyTab(activeId);
+                        } else if (widget.category == GoalCategory.monthly) {
+                          widget.store.copyMonthlyTab(activeId);
+                        }
+                      },
+                      icon: const Icon(Icons.content_copy_outlined, size: 13),
+                      label: const Text('Copy Tab', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   if (widget.onOpenSplit != null)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -290,12 +312,34 @@ class _GoalsTabViewState extends State<GoalsTabView> {
             maxHeight: widget.isSplitPane ? 380 : 460,
           ),
           child: goals.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 36),
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 36),
                   child: Center(
-                    child: Text(
-                      'No goals added yet for this tab.',
-                      style: TextStyle(color: AppTheme.textDim, fontSize: 13),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'No goals added yet for this tab.',
+                          style: TextStyle(color: AppTheme.textDim, fontSize: 13),
+                        ),
+                        if (widget.category != GoalCategory.yearly) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF38BDF8),
+                              side: const BorderSide(color: Color(0x3338BDF8)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            onPressed: () => widget.store.copyPreviousTasks(widget.category.name, activeId),
+                            icon: const Icon(Icons.copy_all_outlined, size: 14),
+                            label: Text(
+                              'Copy all tasks from previous ${widget.category.name} tab',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 )
@@ -382,6 +426,24 @@ class _GoalsTabViewState extends State<GoalsTabView> {
                   ),
                 ),
                 if (goal.priority.isNotEmpty) PriorityChipWidget(priorityKey: goal.priority),
+                if (goal.copyTag != null && goal.copyTag!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(left: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFA78BFA).withOpacity(0.4)),
+                    ),
+                    child: Text(
+                      goal.copyTag!,
+                      style: const TextStyle(
+                        color: Color(0xFFC4B5FD),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 if (isRunningTab)
                   Container(
                     margin: const EdgeInsets.only(left: 6),
@@ -403,6 +465,16 @@ class _GoalsTabViewState extends State<GoalsTabView> {
               ],
             ),
           ),
+          if (widget.category != GoalCategory.yearly)
+            IconButton(
+              icon: const Icon(Icons.content_copy_outlined, size: 15, color: AppTheme.textDim),
+              onPressed: () {
+                widget.store.duplicateSingleGoal(widget.category.name, activeId, goal.id);
+              },
+              tooltip: 'Copy task',
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(4),
+            ),
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textDim),
             onPressed: () => _showEditGoalDialog(activeId, goal.id, goal.text),
@@ -506,11 +578,13 @@ class _GoalsTabViewState extends State<GoalsTabView> {
     for (final day in widget.store.days) {
       final isCurrent = day.dateId == today;
       final isActive = day.dateId == activeId;
+      final label = day.label ?? formatDayLabel(day.dateId);
       items.add(_buildTabPill(
-        label: formatDayLabel(day.dateId),
+        label: label,
         isActive: isActive,
         isCurrent: isCurrent,
         onTap: () => widget.store.selectDayTab(day.dateId),
+        onCopy: () => widget.store.copyDayTab(day.dateId),
         onDelete: isCurrent ? null : () => widget.store.deleteDayTab(day.dateId),
       ));
     }
@@ -536,6 +610,7 @@ class _GoalsTabViewState extends State<GoalsTabView> {
         isActive: isActive,
         isCurrent: isCurrent,
         onTap: () => widget.store.selectWeekTab(week.weekId),
+        onCopy: () => widget.store.copyWeeklyTab(week.weekId),
         onDelete: isCurrent ? null : () => widget.store.deleteWeekTab(week.weekId),
       ));
     }
@@ -556,11 +631,13 @@ class _GoalsTabViewState extends State<GoalsTabView> {
     for (final month in widget.store.months) {
       final isCurrent = month.monthId == curMonth;
       final isActive = month.monthId == activeId;
+      final label = month.label ?? getMonthLabel(month.monthId);
       items.add(_buildTabPill(
-        label: getMonthLabel(month.monthId),
+        label: label,
         isActive: isActive,
         isCurrent: isCurrent,
         onTap: () => widget.store.selectMonthTab(month.monthId),
+        onCopy: () => widget.store.copyMonthlyTab(month.monthId),
         onDelete: isCurrent ? null : () => widget.store.deleteMonthTab(month.monthId),
       ));
     }
@@ -606,6 +683,7 @@ class _GoalsTabViewState extends State<GoalsTabView> {
     required bool isActive,
     required bool isCurrent,
     required VoidCallback onTap,
+    VoidCallback? onCopy,
     VoidCallback? onDelete,
   }) {
     return Container(
@@ -614,7 +692,7 @@ class _GoalsTabViewState extends State<GoalsTabView> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
             color: isActive ? AppTheme.primary.withOpacity(0.2) : Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(10),
@@ -644,11 +722,32 @@ class _GoalsTabViewState extends State<GoalsTabView> {
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
-              if (onDelete != null) ...[
+              if (onCopy != null) ...[
                 const SizedBox(width: 6),
-                InkWell(
-                  onTap: onDelete,
-                  child: const Icon(Icons.close, size: 14, color: AppTheme.textDim),
+                Tooltip(
+                  message: 'Copy tab and all its tasks',
+                  child: InkWell(
+                    onTap: onCopy,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(2),
+                      child: Icon(Icons.content_copy_outlined, size: 12.5, color: AppTheme.textDim),
+                    ),
+                  ),
+                ),
+              ],
+              if (onDelete != null) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Close tab',
+                  child: InkWell(
+                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(2),
+                      child: Icon(Icons.close, size: 13, color: AppTheme.textDim),
+                    ),
+                  ),
                 ),
               ],
             ],

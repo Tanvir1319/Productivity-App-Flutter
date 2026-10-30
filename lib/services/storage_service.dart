@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_models.dart';
+import 'sound_service.dart';
 
 class StorageService extends ChangeNotifier {
   late SharedPreferences _prefs;
@@ -276,6 +277,9 @@ class StorageService extends ChangeNotifier {
     final t = tasks.firstWhere((e) => e.id == id, orElse: () => TaskItem(id: -1, text: ''));
     if (t.id != -1) {
       t.done = !t.done;
+      if (t.done) {
+        playTaskDoneSound();
+      }
       _saveTasks();
       notifyListeners();
     }
@@ -373,6 +377,9 @@ class StorageService extends ChangeNotifier {
     final g = day.goals.firstWhere((x) => x.id == goalId, orElse: () => GoalItem(id: -1, text: ''));
     if (g.id != -1) {
       g.done = !g.done;
+      if (g.done) {
+        playTaskDoneSound();
+      }
       _saveDays();
       notifyListeners();
     }
@@ -391,6 +398,37 @@ class StorageService extends ChangeNotifier {
   void deleteDailyGoal(String dateId, int goalId) {
     final day = days.firstWhere((d) => d.dateId == dateId, orElse: () => DayTab(dateId: '', goals: []));
     day.goals.removeWhere((g) => g.id == goalId);
+    _saveDays();
+    notifyListeners();
+  }
+
+  void copyDayTab(String sourceDateId) {
+    final sourceDay = days.firstWhere(
+      (d) => d.dateId == sourceDateId,
+      orElse: () => DayTab(dateId: sourceDateId, goals: []),
+    );
+    final baseId = sourceDay.dateId.split('_copy_')[0];
+    final existingCopies = days.where((d) => d.dateId.startsWith('${baseId}_copy_')).toList();
+    final copyIndex = existingCopies.length;
+    final tag = getCopyTag(copyIndex);
+    final newDateId = '${baseId}_copy_${copyIndex + 1}';
+
+    final baseLabel = sourceDay.label ?? formatDayLabel(sourceDay.dateId);
+    final cleanBaseLabel = baseLabel.replaceAll(RegExp(r'\s*\((copied|copied\(\d+\))\)'), '').trim();
+    final newLabel = '$cleanBaseLabel ($tag)';
+
+    final copiedGoals = sourceDay.goals.map((g) {
+      return GoalItem(
+        id: _nextDailyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      );
+    }).toList();
+
+    days.add(DayTab(dateId: newDateId, label: newLabel, goals: copiedGoals));
+    activeDayTab = newDateId;
     _saveDays();
     notifyListeners();
   }
@@ -462,6 +500,9 @@ class StorageService extends ChangeNotifier {
     final g = week.goals.firstWhere((x) => x.id == goalId, orElse: () => GoalItem(id: -1, text: ''));
     if (g.id != -1) {
       g.done = !g.done;
+      if (g.done) {
+        playTaskDoneSound();
+      }
       _saveWeeks();
       notifyListeners();
     }
@@ -480,6 +521,36 @@ class StorageService extends ChangeNotifier {
   void deleteWeeklyGoal(String weekId, int goalId) {
     final week = weeks.firstWhere((w) => w.weekId == weekId, orElse: () => WeekTab(weekId: '', label: '', goals: []));
     week.goals.removeWhere((g) => g.id == goalId);
+    _saveWeeks();
+    notifyListeners();
+  }
+
+  void copyWeeklyTab(String sourceWeekId) {
+    final sourceWeek = weeks.firstWhere(
+      (w) => w.weekId == sourceWeekId,
+      orElse: () => WeekTab(weekId: sourceWeekId, label: getWeekLabel(sourceWeekId), goals: []),
+    );
+    final baseId = sourceWeek.weekId.split('_copy_')[0];
+    final existingCopies = weeks.where((w) => w.weekId.startsWith('${baseId}_copy_')).toList();
+    final copyIndex = existingCopies.length;
+    final tag = getCopyTag(copyIndex);
+    final newWeekId = '${baseId}_copy_${copyIndex + 1}';
+
+    final cleanBaseLabel = sourceWeek.label.replaceAll(RegExp(r'\s*\((copied|copied\(\d+\))\)'), '').trim();
+    final newLabel = '$cleanBaseLabel ($tag)';
+
+    final copiedGoals = sourceWeek.goals.map((g) {
+      return GoalItem(
+        id: _nextWeeklyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      );
+    }).toList();
+
+    weeks.add(WeekTab(weekId: newWeekId, label: newLabel, goals: copiedGoals));
+    activeWeekTab = newWeekId;
     _saveWeeks();
     notifyListeners();
   }
@@ -557,6 +628,9 @@ class StorageService extends ChangeNotifier {
     final g = month.goals.firstWhere((x) => x.id == goalId, orElse: () => GoalItem(id: -1, text: ''));
     if (g.id != -1) {
       g.done = !g.done;
+      if (g.done) {
+        playTaskDoneSound();
+      }
       _saveMonths();
       notifyListeners();
     }
@@ -577,6 +651,133 @@ class StorageService extends ChangeNotifier {
     month.goals.removeWhere((g) => g.id == goalId);
     _saveMonths();
     notifyListeners();
+  }
+
+  void copyMonthlyTab(String sourceMonthId) {
+    final sourceMonth = months.firstWhere(
+      (m) => m.monthId == sourceMonthId,
+      orElse: () => MonthTab(monthId: sourceMonthId, goals: []),
+    );
+    final baseId = sourceMonth.monthId.split('_copy_')[0];
+    final existingCopies = months.where((m) => m.monthId.startsWith('${baseId}_copy_')).toList();
+    final copyIndex = existingCopies.length;
+    final tag = getCopyTag(copyIndex);
+    final newMonthId = '${baseId}_copy_${copyIndex + 1}';
+
+    final baseLabel = sourceMonth.label ?? getMonthLabel(sourceMonth.monthId);
+    final cleanBaseLabel = baseLabel.replaceAll(RegExp(r'\s*\((copied|copied\(\d+\))\)'), '').trim();
+    final newLabel = '$cleanBaseLabel ($tag)';
+
+    final copiedGoals = sourceMonth.goals.map((g) {
+      return GoalItem(
+        id: _nextMonthlyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      );
+    }).toList();
+
+    months.add(MonthTab(monthId: newMonthId, label: newLabel, goals: copiedGoals));
+    activeMonthTab = newMonthId;
+    _saveMonths();
+    notifyListeners();
+  }
+
+  // Copy tasks from previous tab into the current active tab
+  void copyPreviousTasks(String category, String activeId) {
+    if (category == 'daily') {
+      final curIndex = days.indexWhere((d) => d.dateId == activeId);
+      if (curIndex == -1 || days.length <= 1) return;
+      final prevIndex = curIndex > 0 ? curIndex - 1 : 1;
+      final prevDay = days[prevIndex];
+      final curDay = days[curIndex];
+      final copyCount = curDay.goals.where((g) => g.copyTag != null).length;
+      final tag = getCopyTag(copyCount > 0 ? 1 : 0);
+      final newGoals = prevDay.goals.map((g) => GoalItem(
+        id: _nextDailyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      )).toList();
+      curDay.goals.addAll(newGoals);
+      _saveDays();
+      notifyListeners();
+    } else if (category == 'weekly') {
+      final curIndex = weeks.indexWhere((w) => w.weekId == activeId);
+      if (curIndex == -1 || weeks.length <= 1) return;
+      final prevIndex = curIndex > 0 ? curIndex - 1 : 1;
+      final prevWeek = weeks[prevIndex];
+      final curWeek = weeks[curIndex];
+      final copyCount = curWeek.goals.where((g) => g.copyTag != null).length;
+      final tag = getCopyTag(copyCount > 0 ? 1 : 0);
+      final newGoals = prevWeek.goals.map((g) => GoalItem(
+        id: _nextWeeklyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      )).toList();
+      curWeek.goals.addAll(newGoals);
+      _saveWeeks();
+      notifyListeners();
+    } else if (category == 'monthly') {
+      final curIndex = months.indexWhere((m) => m.monthId == activeId);
+      if (curIndex == -1 || months.length <= 1) return;
+      final prevIndex = curIndex > 0 ? curIndex - 1 : 1;
+      final prevMonth = months[prevIndex];
+      final curMonth = months[curIndex];
+      final copyCount = curMonth.goals.where((g) => g.copyTag != null).length;
+      final tag = getCopyTag(copyCount > 0 ? 1 : 0);
+      final newGoals = prevMonth.goals.map((g) => GoalItem(
+        id: _nextMonthlyGoalId++,
+        text: g.text,
+        priority: g.priority,
+        done: false,
+        copyTag: tag,
+      )).toList();
+      curMonth.goals.addAll(newGoals);
+      _saveMonths();
+      notifyListeners();
+    }
+  }
+
+  void duplicateSingleGoal(String category, String activeId, int goalId) {
+    if (category == 'daily') {
+      final day = days.firstWhere((d) => d.dateId == activeId, orElse: () => DayTab(dateId: '', goals: []));
+      final idx = day.goals.indexWhere((g) => g.id == goalId);
+      if (idx != -1) {
+        final orig = day.goals[idx];
+        final copyCount = day.goals.where((g) => g.text == orig.text && g.copyTag != null).length;
+        final tag = getCopyTag(copyCount);
+        day.goals.insert(idx + 1, GoalItem(id: _nextDailyGoalId++, text: orig.text, priority: orig.priority, done: false, copyTag: tag));
+        _saveDays();
+        notifyListeners();
+      }
+    } else if (category == 'weekly') {
+      final week = weeks.firstWhere((w) => w.weekId == activeId, orElse: () => WeekTab(weekId: '', label: '', goals: []));
+      final idx = week.goals.indexWhere((g) => g.id == goalId);
+      if (idx != -1) {
+        final orig = week.goals[idx];
+        final copyCount = week.goals.where((g) => g.text == orig.text && g.copyTag != null).length;
+        final tag = getCopyTag(copyCount);
+        week.goals.insert(idx + 1, GoalItem(id: _nextWeeklyGoalId++, text: orig.text, priority: orig.priority, done: false, copyTag: tag));
+        _saveWeeks();
+        notifyListeners();
+      }
+    } else if (category == 'monthly') {
+      final month = months.firstWhere((m) => m.monthId == activeId, orElse: () => MonthTab(monthId: '', goals: []));
+      final idx = month.goals.indexWhere((g) => g.id == goalId);
+      if (idx != -1) {
+        final orig = month.goals[idx];
+        final copyCount = month.goals.where((g) => g.text == orig.text && g.copyTag != null).length;
+        final tag = getCopyTag(copyCount);
+        month.goals.insert(idx + 1, GoalItem(id: _nextMonthlyGoalId++, text: orig.text, priority: orig.priority, done: false, copyTag: tag));
+        _saveMonths();
+        notifyListeners();
+      }
+    }
   }
 
   // --- YEARLY GOALS ACTIONS (Max 2 tabs: Running & Upcoming) ---
@@ -634,6 +835,9 @@ class StorageService extends ChangeNotifier {
     final g = year.goals.firstWhere((x) => x.id == goalId, orElse: () => GoalItem(id: -1, text: ''));
     if (g.id != -1) {
       g.done = !g.done;
+      if (g.done) {
+        playTaskDoneSound();
+      }
       _saveYears();
       notifyListeners();
     }

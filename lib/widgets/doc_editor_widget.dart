@@ -1,5 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
+
+class AutoPointTextInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Detect single newline insertion
+    if (newValue.text.length == oldValue.text.length + 1 &&
+        newValue.selection.isCollapsed &&
+        newValue.selection.start > 0 &&
+        newValue.text[newValue.selection.start - 1] == '\n') {
+      
+      final cursor = newValue.selection.start; // character position immediately following '\n'
+      final textBeforeNewline = newValue.text.substring(0, cursor - 1);
+      final lastNewline = textBeforeNewline.lastIndexOf('\n');
+      final lineStart = (lastNewline == -1) ? 0 : lastNewline + 1;
+      final prevLine = textBeforeNewline.substring(lineStart);
+
+      // Matches any point/list format: •, ☑, ☐, -, *, or numbered (1., 2., etc.)
+      final match = RegExp(r'^(\s*)(•|☑|☐|\-|\*|(\d+)\.)\s*(.*)$').firstMatch(prevLine);
+      if (match != null) {
+        final indent = match.group(1) ?? '';
+        final marker = match.group(2)!;
+        final numPart = match.group(3);
+        final content = match.group(4) ?? '';
+
+        // If user hit Enter on an empty bullet line (e.g. just "• "), clear the bullet and exit list
+        if (content.trim().isEmpty) {
+          final prefixText = textBeforeNewline.substring(0, lineStart);
+          final restText = newValue.text.substring(cursor);
+          final newText = '$prefixText$restText';
+          return TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: prefixText.length),
+          );
+        }
+
+        // Generate next automatic point
+        String nextPrefix;
+        if (numPart != null) {
+          final curNum = int.tryParse(numPart) ?? 1;
+          nextPrefix = '$indent${curNum + 1}. ';
+        } else {
+          nextPrefix = '$indent$marker ';
+        }
+
+        final newText = newValue.text.substring(0, cursor) + nextPrefix + newValue.text.substring(cursor);
+        return TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: cursor + nextPrefix.length),
+        );
+      }
+    }
+    return newValue;
+  }
+}
+
 
 class DocTextEditingController extends TextEditingController {
   DocTextEditingController({super.text});
@@ -402,6 +461,7 @@ class _DocEditorWidgetState extends State<DocEditorWidget> {
           controller: widget.controller,
           focusNode: _focusNode,
           maxLines: 5,
+          inputFormatters: [AutoPointTextInputFormatter()],
           style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.5),
           decoration: InputDecoration(
             hintText: widget.hintText,

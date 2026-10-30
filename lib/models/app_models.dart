@@ -83,12 +83,14 @@ class GoalItem {
   String text;
   bool done;
   String priority;
+  String? copyTag;
 
   GoalItem({
     required this.id,
     required this.text,
     this.done = false,
     this.priority = '',
+    this.copyTag,
   });
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +98,7 @@ class GoalItem {
         'text': text,
         'done': done,
         'priority': priority,
+        'copyTag': copyTag,
       };
 
   factory GoalItem.fromJson(Map<String, dynamic> json) {
@@ -104,24 +107,28 @@ class GoalItem {
       text: json['text'] ?? '',
       done: json['done'] == true,
       priority: json['priority'] ?? '',
+      copyTag: json['copyTag'],
     );
   }
 }
 
 class DayTab {
-  String dateId; // YYYY-MM-DD
+  String dateId; // YYYY-MM-DD or custom copy id
+  String? label;
   List<GoalItem> goals;
 
-  DayTab({required this.dateId, required this.goals});
+  DayTab({required this.dateId, this.label, required this.goals});
 
   Map<String, dynamic> toJson() => {
         'dateId': dateId,
+        'label': label,
         'goals': goals.map((g) => g.toJson()).toList(),
       };
 
   factory DayTab.fromJson(Map<String, dynamic> json) {
     return DayTab(
       dateId: json['dateId'] ?? '',
+      label: json['label'],
       goals: (json['goals'] as List<dynamic>? ?? [])
           .map((item) => GoalItem.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
@@ -130,7 +137,7 @@ class DayTab {
 }
 
 class WeekTab {
-  String weekId; // YYYY-MM-DD (Friday start)
+  String weekId; // YYYY-MM-DD (Friday start) or copy id
   String label;
   List<GoalItem> goals;
 
@@ -155,19 +162,22 @@ class WeekTab {
 }
 
 class MonthTab {
-  String monthId; // YYYY-MM
+  String monthId; // YYYY-MM or copy id
+  String? label;
   List<GoalItem> goals;
 
-  MonthTab({required this.monthId, required this.goals});
+  MonthTab({required this.monthId, this.label, required this.goals});
 
   Map<String, dynamic> toJson() => {
         'monthId': monthId,
+        'label': label,
         'goals': goals.map((g) => g.toJson()).toList(),
       };
 
   factory MonthTab.fromJson(Map<String, dynamic> json) {
     return MonthTab(
       monthId: json['monthId'] ?? '',
+      label: json['label'],
       goals: (json['goals'] as List<dynamic>? ?? [])
           .map((item) => GoalItem.fromJson(Map<String, dynamic>.from(item)))
           .toList(),
@@ -327,4 +337,10 @@ String getCurrentYearId() {
 String getUpcomingYearId() {
   return (DateTime.now().year + 1).toString();
 }
+
+String getCopyTag(int copyIndex) {
+  if (copyIndex == 0) return 'copied';
+  return 'copied($copyIndex)';
+}
+
 
