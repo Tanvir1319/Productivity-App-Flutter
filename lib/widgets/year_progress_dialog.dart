@@ -143,13 +143,13 @@ class _YearProgressDialogState extends State<YearProgressDialog> {
                               gradient: const [Color(0xFF38BDF8), Color(0xFF67E8F9)],
                             ),
                             _buildStatCard(
-                              value: '${stats['passedMonths']}',
-                              label: 'Months Passed',
+                              value: '${stats['totalDays']}',
+                              label: 'Total Days',
                               gradient: const [Color(0xFFC4B5FD), Color(0xFFA5B4FC)],
                             ),
                             _buildStatCard(
-                              value: '${stats['leftMonths']}',
-                              label: 'Months Left',
+                              value: '${stats['yearPct']}%',
+                              label: 'Year Progress',
                               gradient: const [Color(0xFF38BDF8), Color(0xFF22D3EE)],
                             ),
                           ],
