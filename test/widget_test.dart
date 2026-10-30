@@ -154,5 +154,24 @@ void main() {
       storage.toggleTask(taskId);
       expect(storage.tasks.first.done, isTrue);
     });
+
+    test('Data persistence export and import restores all state after app closes/restarts', () async {
+      storage.addTask('Task to persist');
+      storage.addNote('Note to persist');
+      storage.saveAchievements('Big Achievements');
+      storage.saveTargets('Key Targets');
+
+      final exported = storage.exportToJsonMap();
+
+      // Simulate a brand new app session
+      final freshStorage = StorageService();
+      await freshStorage.init();
+      freshStorage.importFromJsonMap(exported);
+
+      expect(freshStorage.tasks.any((t) => t.text == 'Task to persist'), isTrue);
+      expect(freshStorage.notes.any((n) => n.text == 'Note to persist'), isTrue);
+      expect(freshStorage.achievements, equals('Big Achievements'));
+      expect(freshStorage.targets, equals('Key Targets'));
+    });
   });
 }

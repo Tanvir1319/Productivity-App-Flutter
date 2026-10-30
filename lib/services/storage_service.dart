@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_models.dart';
 import 'sound_service.dart';
+import 'persistent_storage.dart';
 
 class StorageService extends ChangeNotifier {
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
@@ -40,6 +41,15 @@ class StorageService extends ChangeNotifier {
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     _loadAll();
+
+    // Check persistent disk backend if available
+    try {
+      final backendData = await fetchFromLocalBackend();
+      if (backendData != null && backendData.isNotEmpty) {
+        importFromJsonMap(backendData);
+      }
+    } catch (_) {}
+
     _initDefaultsIfNeeded();
     _recalcIds();
     _initialized = true;
@@ -47,9 +57,12 @@ class StorageService extends ChangeNotifier {
   }
 
   void _loadAll() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+
     // Tasks
     try {
-      final str = _prefs.getString('ff_tasks');
+      final str = prefs.getString('ff_tasks');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         tasks = list.map((e) => TaskItem.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -58,7 +71,7 @@ class StorageService extends ChangeNotifier {
 
     // Notes
     try {
-      final str = _prefs.getString('ff_notes');
+      final str = prefs.getString('ff_notes');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         notes = list.map((e) => NoteItem.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -67,7 +80,7 @@ class StorageService extends ChangeNotifier {
 
     // Days
     try {
-      final str = _prefs.getString('ff_days');
+      final str = prefs.getString('ff_days');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         days = list.map((e) => DayTab.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -76,7 +89,7 @@ class StorageService extends ChangeNotifier {
 
     // Weeks
     try {
-      final str = _prefs.getString('ff_weeks');
+      final str = prefs.getString('ff_weeks');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         weeks = list.map((e) => WeekTab.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -85,7 +98,7 @@ class StorageService extends ChangeNotifier {
 
     // Months
     try {
-      final str = _prefs.getString('ff_months');
+      final str = prefs.getString('ff_months');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         months = list.map((e) => MonthTab.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -94,7 +107,7 @@ class StorageService extends ChangeNotifier {
 
     // Years
     try {
-      final str = _prefs.getString('ff_years');
+      final str = prefs.getString('ff_years');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         years = list.map((e) => YearTab.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -103,7 +116,7 @@ class StorageService extends ChangeNotifier {
 
     // Namaz Tabs
     try {
-      final str = _prefs.getString('ff_namaz_tabs');
+      final str = prefs.getString('ff_namaz_tabs');
       if (str != null && str.isNotEmpty) {
         final list = jsonDecode(str) as List;
         namazTabs = list.map((e) => NamazTab.fromJson(Map<String, dynamic>.from(e))).toList();
@@ -111,19 +124,19 @@ class StorageService extends ChangeNotifier {
     } catch (_) {}
 
     // Active tabs
-    activeDayTab = _prefs.getString('ff_activeDayTab');
-    activeWeekTab = _prefs.getString('ff_activeWeekTab');
-    activeMonthTab = _prefs.getString('ff_activeMonthTab');
-    activeYearTab = _prefs.getString('ff_activeYearTab');
-    activeNamazTab = _prefs.getString('ff_activeNamazTab');
+    activeDayTab = prefs.getString('ff_activeDayTab');
+    activeWeekTab = prefs.getString('ff_activeWeekTab');
+    activeMonthTab = prefs.getString('ff_activeMonthTab');
+    activeYearTab = prefs.getString('ff_activeYearTab');
+    activeNamazTab = prefs.getString('ff_activeNamazTab');
 
     // Split settings
-    splitLeft = _prefs.getString('ff_splitLeft') ?? 'daily';
-    splitRight = _prefs.getString('ff_splitRight') ?? 'weekly';
+    splitLeft = prefs.getString('ff_splitLeft') ?? 'daily';
+    splitRight = prefs.getString('ff_splitRight') ?? 'weekly';
 
     // Rich progress content
-    achievements = _prefs.getString('ff_ach') ?? '';
-    targets = _prefs.getString('ff_tgt') ?? '';
+    achievements = prefs.getString('ff_ach') ?? '';
+    targets = prefs.getString('ff_tgt') ?? '';
   }
 
   void _initDefaultsIfNeeded() {
@@ -212,56 +225,176 @@ class StorageService extends ChangeNotifier {
   }
 
   // --- SAVE METHODS ---
+  void _syncToBackend() {
+    saveToLocalBackend(exportToJsonMap());
+  }
+
+  Map<String, dynamic> exportToJsonMap() {
+    return {
+      'ff_tasks': tasks.map((e) => e.toJson()).toList(),
+      'ff_notes': notes.map((e) => e.toJson()).toList(),
+      'ff_days': days.map((e) => e.toJson()).toList(),
+      'ff_weeks': weeks.map((e) => e.toJson()).toList(),
+      'ff_months': months.map((e) => e.toJson()).toList(),
+      'ff_years': years.map((e) => e.toJson()).toList(),
+      'ff_namaz_tabs': namazTabs.map((e) => e.toJson()).toList(),
+      'ff_activeDayTab': activeDayTab,
+      'ff_activeWeekTab': activeWeekTab,
+      'ff_activeMonthTab': activeMonthTab,
+      'ff_activeYearTab': activeYearTab,
+      'ff_activeNamazTab': activeNamazTab,
+      'ff_splitLeft': splitLeft,
+      'ff_splitRight': splitRight,
+      'ff_ach': achievements,
+      'ff_tgt': targets,
+    };
+  }
+
+  void importFromJsonMap(Map<String, dynamic> data) {
+    if (data.containsKey('ff_tasks')) {
+      final list = data['ff_tasks'] as List? ?? [];
+      tasks = list.map((e) => TaskItem.fromJson(Map<String, dynamic>.from(e))).toList();
+      _prefs?.setString('ff_tasks', jsonEncode(list));
+    }
+    if (data.containsKey('ff_notes')) {
+      final list = data['ff_notes'] as List? ?? [];
+      notes = list.map((e) => NoteItem.fromJson(Map<String, dynamic>.from(e))).toList();
+      _prefs?.setString('ff_notes', jsonEncode(list));
+    }
+    if (data.containsKey('ff_days')) {
+      final list = data['ff_days'] as List? ?? [];
+      if (list.isNotEmpty) {
+        days = list.map((e) => DayTab.fromJson(Map<String, dynamic>.from(e))).toList();
+        _prefs?.setString('ff_days', jsonEncode(list));
+      }
+    }
+    if (data.containsKey('ff_weeks')) {
+      final list = data['ff_weeks'] as List? ?? [];
+      if (list.isNotEmpty) {
+        weeks = list.map((e) => WeekTab.fromJson(Map<String, dynamic>.from(e))).toList();
+        _prefs?.setString('ff_weeks', jsonEncode(list));
+      }
+    }
+    if (data.containsKey('ff_months')) {
+      final list = data['ff_months'] as List? ?? [];
+      if (list.isNotEmpty) {
+        months = list.map((e) => MonthTab.fromJson(Map<String, dynamic>.from(e))).toList();
+        _prefs?.setString('ff_months', jsonEncode(list));
+      }
+    }
+    if (data.containsKey('ff_years')) {
+      final list = data['ff_years'] as List? ?? [];
+      if (list.isNotEmpty) {
+        years = list.map((e) => YearTab.fromJson(Map<String, dynamic>.from(e))).toList();
+        _prefs?.setString('ff_years', jsonEncode(list));
+      }
+    }
+    if (data.containsKey('ff_namaz_tabs')) {
+      final list = data['ff_namaz_tabs'] as List? ?? [];
+      if (list.isNotEmpty) {
+        namazTabs = list.map((e) => NamazTab.fromJson(Map<String, dynamic>.from(e))).toList();
+        _prefs?.setString('ff_namaz_tabs', jsonEncode(list));
+      }
+    }
+    if (data['ff_activeDayTab'] != null) {
+      activeDayTab = data['ff_activeDayTab']?.toString();
+      _prefs?.setString('ff_activeDayTab', activeDayTab!);
+    }
+    if (data['ff_activeWeekTab'] != null) {
+      activeWeekTab = data['ff_activeWeekTab']?.toString();
+      _prefs?.setString('ff_activeWeekTab', activeWeekTab!);
+    }
+    if (data['ff_activeMonthTab'] != null) {
+      activeMonthTab = data['ff_activeMonthTab']?.toString();
+      _prefs?.setString('ff_activeMonthTab', activeMonthTab!);
+    }
+    if (data['ff_activeYearTab'] != null) {
+      activeYearTab = data['ff_activeYearTab']?.toString();
+      _prefs?.setString('ff_activeYearTab', activeYearTab!);
+    }
+    if (data['ff_activeNamazTab'] != null) {
+      activeNamazTab = data['ff_activeNamazTab']?.toString();
+      _prefs?.setString('ff_activeNamazTab', activeNamazTab!);
+    }
+    if (data['ff_splitLeft'] != null) {
+      splitLeft = data['ff_splitLeft']?.toString() ?? 'daily';
+      _prefs?.setString('ff_splitLeft', splitLeft);
+    }
+    if (data['ff_splitRight'] != null) {
+      splitRight = data['ff_splitRight']?.toString() ?? 'weekly';
+      _prefs?.setString('ff_splitRight', splitRight);
+    }
+    if (data['ff_ach'] != null) {
+      achievements = data['ff_ach']?.toString() ?? '';
+      _prefs?.setString('ff_ach', achievements);
+    }
+    if (data['ff_tgt'] != null) {
+      targets = data['ff_tgt']?.toString() ?? '';
+      _prefs?.setString('ff_tgt', targets);
+    }
+    _recalcIds();
+  }
+
   Future<void> _saveTasks() async {
-    await _prefs.setString('ff_tasks', jsonEncode(tasks.map((e) => e.toJson()).toList()));
+    await _prefs?.setString('ff_tasks', jsonEncode(tasks.map((e) => e.toJson()).toList()));
+    _syncToBackend();
   }
 
   Future<void> _saveNotes() async {
-    await _prefs.setString('ff_notes', jsonEncode(notes.map((e) => e.toJson()).toList()));
+    await _prefs?.setString('ff_notes', jsonEncode(notes.map((e) => e.toJson()).toList()));
+    _syncToBackend();
   }
 
   Future<void> _saveDays() async {
-    await _prefs.setString('ff_days', jsonEncode(days.map((e) => e.toJson()).toList()));
-    if (activeDayTab != null) await _prefs.setString('ff_activeDayTab', activeDayTab!);
+    await _prefs?.setString('ff_days', jsonEncode(days.map((e) => e.toJson()).toList()));
+    if (activeDayTab != null) await _prefs?.setString('ff_activeDayTab', activeDayTab!);
+    _syncToBackend();
   }
 
   Future<void> _saveWeeks() async {
-    await _prefs.setString('ff_weeks', jsonEncode(weeks.map((e) => e.toJson()).toList()));
-    if (activeWeekTab != null) await _prefs.setString('ff_activeWeekTab', activeWeekTab!);
+    await _prefs?.setString('ff_weeks', jsonEncode(weeks.map((e) => e.toJson()).toList()));
+    if (activeWeekTab != null) await _prefs?.setString('ff_activeWeekTab', activeWeekTab!);
+    _syncToBackend();
   }
 
   Future<void> _saveMonths() async {
-    await _prefs.setString('ff_months', jsonEncode(months.map((e) => e.toJson()).toList()));
-    if (activeMonthTab != null) await _prefs.setString('ff_activeMonthTab', activeMonthTab!);
+    await _prefs?.setString('ff_months', jsonEncode(months.map((e) => e.toJson()).toList()));
+    if (activeMonthTab != null) await _prefs?.setString('ff_activeMonthTab', activeMonthTab!);
+    _syncToBackend();
   }
 
   Future<void> _saveYears() async {
-    await _prefs.setString('ff_years', jsonEncode(years.map((e) => e.toJson()).toList()));
-    if (activeYearTab != null) await _prefs.setString('ff_activeYearTab', activeYearTab!);
+    await _prefs?.setString('ff_years', jsonEncode(years.map((e) => e.toJson()).toList()));
+    if (activeYearTab != null) await _prefs?.setString('ff_activeYearTab', activeYearTab!);
+    _syncToBackend();
   }
 
   Future<void> _saveNamazTabs() async {
-    await _prefs.setString('ff_namaz_tabs', jsonEncode(namazTabs.map((e) => e.toJson()).toList()));
-    if (activeNamazTab != null) await _prefs.setString('ff_activeNamazTab', activeNamazTab!);
+    await _prefs?.setString('ff_namaz_tabs', jsonEncode(namazTabs.map((e) => e.toJson()).toList()));
+    if (activeNamazTab != null) await _prefs?.setString('ff_activeNamazTab', activeNamazTab!);
+    _syncToBackend();
   }
 
   Future<void> saveSplitConfig(String left, String right) async {
     splitLeft = left;
     splitRight = right;
-    await _prefs.setString('ff_splitLeft', left);
-    await _prefs.setString('ff_splitRight', right);
+    await _prefs?.setString('ff_splitLeft', left);
+    await _prefs?.setString('ff_splitRight', right);
+    _syncToBackend();
     notifyListeners();
   }
 
   Future<void> saveAchievements(String text) async {
     achievements = text;
-    await _prefs.setString('ff_ach', text);
+    await _prefs?.setString('ff_ach', text);
+    _syncToBackend();
     notifyListeners();
   }
 
   Future<void> saveTargets(String text) async {
     targets = text;
-    await _prefs.setString('ff_tgt', text);
+    await _prefs?.setString('ff_tgt', text);
+    _syncToBackend();
     notifyListeners();
   }
 
@@ -325,7 +458,8 @@ class StorageService extends ChangeNotifier {
   // --- DAILY GOALS ACTIONS ---
   void selectDayTab(String dateId) {
     activeDayTab = dateId;
-    _prefs.setString('ff_activeDayTab', dateId);
+    _prefs?.setString('ff_activeDayTab', dateId);
+    _syncToBackend();
     notifyListeners();
   }
 
@@ -436,7 +570,8 @@ class StorageService extends ChangeNotifier {
   // --- WEEKLY GOALS ACTIONS ---
   void selectWeekTab(String weekId) {
     activeWeekTab = weekId;
-    _prefs.setString('ff_activeWeekTab', weekId);
+    _prefs?.setString('ff_activeWeekTab', weekId);
+    _syncToBackend();
     notifyListeners();
   }
 
@@ -558,7 +693,8 @@ class StorageService extends ChangeNotifier {
   // --- MONTHLY GOALS ACTIONS ---
   void selectMonthTab(String monthId) {
     activeMonthTab = monthId;
-    _prefs.setString('ff_activeMonthTab', monthId);
+    _prefs?.setString('ff_activeMonthTab', monthId);
+    _syncToBackend();
     notifyListeners();
   }
 
@@ -783,7 +919,8 @@ class StorageService extends ChangeNotifier {
   // --- YEARLY GOALS ACTIONS (Max 2 tabs: Running & Upcoming) ---
   void selectYearTab(String yearId) {
     activeYearTab = yearId;
-    _prefs.setString('ff_activeYearTab', yearId);
+    _prefs?.setString('ff_activeYearTab', yearId);
+    _syncToBackend();
     notifyListeners();
   }
 
@@ -863,7 +1000,8 @@ class StorageService extends ChangeNotifier {
   // --- NAMAZ TABS ACTIONS (Max 12 Tabs) ---
   void selectNamazTab(String tabId) {
     activeNamazTab = tabId;
-    _prefs.setString('ff_activeNamazTab', tabId);
+    _prefs?.setString('ff_activeNamazTab', tabId);
+    _syncToBackend();
     notifyListeners();
   }
 
