@@ -755,20 +755,34 @@ class StorageService extends ChangeNotifier {
 
   Map<String, dynamic> get yearStats {
     final now = DateTime.now();
-    final start = DateTime(now.year, 1, 1);
-    final end = DateTime(now.year + 1, 1, 1);
-    final totalDays = end.difference(start).inDays;
-    final passedDays = now.difference(start).inDays;
+    final today = DateTime(now.year, now.month, now.day);
+    final startOfYear = DateTime(now.year, 1, 1);
+    final endOfYear = DateTime(now.year + 1, 1, 1);
+
+    // Exact days in current year (365 or 366 in leap year)
+    final totalDays = endOfYear.difference(startOfYear).inDays;
+    final dayOfYear = today.difference(startOfYear).inDays + 1;
+    final passedDays = dayOfYear;
     final leftDays = (totalDays - passedDays).clamp(0, totalDays);
 
-    final totalWeeks = totalDays ~/ 7;
-    final passedWeeks = passedDays ~/ 7;
-    final leftWeeks = (totalWeeks - passedWeeks).clamp(0, totalWeeks);
+    // Week calculation: Friday to Friday
+    // Find the first Friday of the year
+    final int diffToFirstFriday = (DateTime.friday - startOfYear.weekday + 7) % 7;
+    final DateTime firstFriday = startOfYear.add(Duration(days: diffToFirstFriday));
 
-    const totalMonths = 12;
-    final passedMonths = now.month - 1;
-    final leftMonths = (totalMonths - passedMonths).clamp(0, totalMonths);
-    final yearPct = (passedDays / totalDays * 100).round();
+    int passedWeeks;
+    if (today.isBefore(firstFriday)) {
+      passedWeeks = 0;
+    } else {
+      passedWeeks = (today.difference(firstFriday).inDays ~/ 7) + 1;
+    }
+    const int totalWeeks = 52;
+    final int leftWeeks = (totalWeeks - passedWeeks).clamp(0, totalWeeks);
+
+    const int totalMonths = 12;
+    final int passedMonths = now.month;
+    final int leftMonths = (totalMonths - passedMonths).clamp(0, totalMonths);
+    final int yearPct = (passedDays / totalDays * 100).round();
 
     return {
       'totalDays': totalDays,

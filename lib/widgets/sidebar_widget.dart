@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/app_models.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'year_progress_dialog.dart';
@@ -103,21 +104,41 @@ class SidebarWidget extends StatelessWidget {
                   id: 'daily',
                   label: 'Daily Goals',
                   icon: Icons.today_outlined,
+                  badge: () {
+                    final today = getTodayDate();
+                    final d = store.days.firstWhere((x) => x.dateId == today, orElse: () => DayTab(dateId: '', goals: []));
+                    return d.goals.isNotEmpty ? '${d.goals.where((g) => !g.done).length}/${d.goals.length}' : null;
+                  }(),
                 ),
                 _buildNavItem(
                   id: 'weekly',
                   label: 'Weekly Goals',
                   icon: Icons.date_range_outlined,
+                  badge: () {
+                    final curW = getFridayWeek();
+                    final w = store.weeks.firstWhere((x) => x.weekId == curW, orElse: () => WeekTab(weekId: '', label: '', goals: []));
+                    return w.goals.isNotEmpty ? '${w.goals.where((g) => !g.done).length}/${w.goals.length}' : null;
+                  }(),
                 ),
                 _buildNavItem(
                   id: 'monthly',
                   label: 'Monthly Goals',
                   icon: Icons.calendar_month_outlined,
+                  badge: () {
+                    final curM = getCurrentMonthId();
+                    final m = store.months.firstWhere((x) => x.monthId == curM, orElse: () => MonthTab(monthId: '', goals: []));
+                    return m.goals.isNotEmpty ? '${m.goals.where((g) => !g.done).length}/${m.goals.length}' : null;
+                  }(),
                 ),
                 _buildNavItem(
                   id: 'yearly',
                   label: 'Yearly Goals',
                   icon: Icons.flag_outlined,
+                  badge: () {
+                    final curY = getCurrentYearId();
+                    final y = store.years.firstWhere((x) => x.yearId == curY, orElse: () => YearTab(yearId: '', goals: []));
+                    return y.goals.isNotEmpty ? '${y.goals.where((g) => !g.done).length}/${y.goals.length}' : null;
+                  }(),
                 ),
                 _buildNavItem(
                   id: 'split',
@@ -128,6 +149,13 @@ class SidebarWidget extends StatelessWidget {
                   id: 'namaz',
                   label: 'Namaz Timetable',
                   icon: Icons.access_time_outlined,
+                  badge: () {
+                    final tab = store.namazTabs.firstWhere(
+                      (t) => t.tabId == store.activeNamazTab,
+                      orElse: () => store.namazTabs.isNotEmpty ? store.namazTabs.first : NamazTab(tabId: '', name: '', items: []),
+                    );
+                    return '${tab.items.length}';
+                  }(),
                 ),
 
                 const SizedBox(height: 16),

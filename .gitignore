@@ -10,6 +10,12 @@
 .svn/
 migrate_working_dir/
 
+# Build artifacts & packages
+/dist/
+/build/
+desktop-package/
+node_modules/
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -28,9 +34,6 @@ migrate_working_dir/
 .packages
 .pub-cache/
 .pub/
-/build/
-
-# Web related
 
 # Symbol processing related
 android/app/src/main/res/values/values.xml

@@ -293,7 +293,8 @@ String getFridayWeek([DateTime? date]) {
 String getWeekLabel(String weekId) {
   try {
     final start = DateTime.parse(weekId);
-    final end = start.add(const Duration(days: 6));
+    // Friday to next Friday (7 days)
+    final end = start.add(const Duration(days: 7));
     final startStr = DateFormat('MMM d').format(start);
     final endStr = DateFormat('MMM d').format(end);
     return '$startStr – $endStr';
