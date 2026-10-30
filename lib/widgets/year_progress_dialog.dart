@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
+import 'doc_editor_widget.dart';
 
 class YearProgressDialog extends StatefulWidget {
   final StorageService store;
@@ -12,14 +13,14 @@ class YearProgressDialog extends StatefulWidget {
 }
 
 class _YearProgressDialogState extends State<YearProgressDialog> {
-  late TextEditingController _achController;
-  late TextEditingController _tgtController;
+  late DocTextEditingController _achController;
+  late DocTextEditingController _tgtController;
 
   @override
   void initState() {
     super.initState();
-    _achController = TextEditingController(text: widget.store.achievements);
-    _tgtController = TextEditingController(text: widget.store.targets);
+    _achController = DocTextEditingController(text: widget.store.achievements);
+    _tgtController = DocTextEditingController(text: widget.store.targets);
   }
 
   @override
@@ -158,71 +159,25 @@ class _YearProgressDialogState extends State<YearProgressDialog> {
 
                     const SizedBox(height: 24),
 
-                    // Achievements Section
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.emoji_events, color: Colors.amber, size: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Achievements',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
+                    // Achievements Section with Doc-like Interface
+                    DocEditorWidget(
+                      label: 'Achievements',
+                      icon: Icons.emoji_events,
+                      iconColor: Colors.amber,
                       controller: _achController,
-                      maxLines: 4,
-                      style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                      decoration: const InputDecoration(
-                        hintText: 'Record your accomplishments, milestones, and wins this year...',
-                      ),
+                      hintText: 'Record your accomplishments, milestones, and wins this year...\nFormat with Bold, Italic, Headings, Bullets, and Colors above!',
                       onChanged: (_) => _saveChanges(),
                     ),
 
                     const SizedBox(height: 20),
 
-                    // Targets Section
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.track_changes, color: AppTheme.accent, size: 16),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Key Targets & Vision',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
+                    // Targets Section with Doc-like Interface
+                    DocEditorWidget(
+                      label: 'Key Targets & Vision',
+                      icon: Icons.track_changes,
+                      iconColor: AppTheme.accent,
                       controller: _tgtController,
-                      maxLines: 4,
-                      style: const TextStyle(color: Colors.white, fontSize: 13.5),
-                      decoration: const InputDecoration(
-                        hintText: 'Define your main objectives, priorities, and roadmap...',
-                      ),
+                      hintText: 'Define your main objectives, priorities, and roadmap...\nFormat with Bold, Italic, Headings, Bullets, and Colors above!',
                       onChanged: (_) => _saveChanges(),
                     ),
                   ],
